@@ -1,61 +1,48 @@
-//! # Vajra WAL
+//! # Vajra Write-Ahead Log
 //!
-//! Write-Ahead Log implementation for crash-consistent persistence.
-//!
-//! This crate provides a durable, crash-consistent log for storing
-//! Raft log entries before they are applied to the state machine.
+//! A crash-consistent Write-Ahead Log implementation for Vajra.
 //!
 //! ## Features
 //!
-//! - **Crash Consistency**: CRC32 checksums detect corruption
-//! - **Segment Rotation**: Automatic log file rotation
-//! - **Configurable Sync**: Trade durability for performance
-//! - **Fast Recovery**: Efficient log replay on startup
+//! - **Crash Consistency**: Survives power failures mid-write
+//! - **CRC32 Checksums**: Detects corruption from hardware errors
+//! - **Little Endian**: Portable across architectures
+//! - **Segment Rotation**: Automatic segment management
+//! - **Sync Policies**: Configurable durability vs performance
 //!
-//! ## Log Entry Format
+//! ## Entry Format
 //!
 //! ```text
-//! ┌─────────┬─────────┬──────────┬─────────────────────┬────────────┐
-//! │ Magic   │ Length  │ CRC32    │ Payload             │ Padding    │
-//! │ 4 bytes │ 4 bytes │ 4 bytes  │ variable            │ to 8-align │
-//! └─────────┴─────────┴──────────┴─────────────────────┴────────────┘
+//! ┌─────────────┬─────────────┬──────────────────┐
+//! │ Length (4B) │  CRC32 (4B) │   Payload (var)  │
+//! │  u32 LE     │  u32 LE     │   [u8; length]   │
+//! └─────────────┴─────────────┴──────────────────┘
+//! ```
+//!
+//! ## Example
+//!
+//! ```ignore
+//! use vajra_wal::{WriteAheadLog, WalConfig, LogEntry, Command};
+//!
+//! let config = WalConfig::default();
+//! let wal = WriteAheadLog::open(config)?;
+//!
+//! // Append an entry
+//! let entry = LogEntry::new(1, 1, Command::Noop);
+//! wal.append(entry)?;
+//!
+//! // Force sync
+//! wal.sync()?;
 //! ```
 
 #![warn(missing_docs)]
 #![warn(clippy::all)]
-#![warn(clippy::pedantic)]
 
-// Modules will be implemented in Phase 2
-// pub mod entry;
-// pub mod segment;
-// pub mod wal;
-// pub mod recovery;
+pub mod entry;
+pub mod segment;
+pub mod wal;
 
-/// Placeholder for the Write-Ahead Log (to be implemented in Phase 2)
-pub struct WriteAheadLog {
-    _private: (),
-}
-
-impl WriteAheadLog {
-    /// Create a new WAL (placeholder)
-    #[must_use]
-    pub fn new() -> Self {
-        Self { _private: () }
-    }
-}
-
-impl Default for WriteAheadLog {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_placeholder() {
-        let _wal = WriteAheadLog::new();
-    }
-}
+// Re-export main types
+pub use entry::{Command, LogEntry};
+pub use segment::Segment;
+pub use wal::{WalConfig, WriteAheadLog};
