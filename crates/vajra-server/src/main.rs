@@ -17,6 +17,7 @@
 mod config;
 mod reactor;
 mod state_machine;
+mod transport;
 
 use clap::Parser;
 use std::path::PathBuf;

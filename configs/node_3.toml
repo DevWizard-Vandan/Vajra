@@ -1,0 +1,32 @@
+# Vajra Node 3 Configuration
+
+[node]
+id = 3
+
+[server]
+grpc_addr = "127.0.0.1:50053"
+metrics_addr = "127.0.0.1:9093"
+data_dir = "data/node_3"
+
+[peers]
+[[peers.nodes]]
+id = 1
+addr = "127.0.0.1:50051"
+
+[[peers.nodes]]
+id = 2
+addr = "127.0.0.1:50052"
+
+[hnsw]
+m = 16
+ef_construction = 200
+ef_search = 50
+
+[engine]
+dimensions = 128
+max_vectors = 100000
+
+[raft]
+election_timeout_min_ms = 150
+election_timeout_max_ms = 300
+heartbeat_interval_ms = 50

@@ -5,7 +5,7 @@
 
 use crate::config::ServerConfig;
 use crate::state_machine::VajraStateMachine;
-use std::collections::HashMap;
+use crate::transport::TransportManager;
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use tracing::{error, info, warn};
@@ -68,8 +68,8 @@ pub struct VajraNode {
     client_rx: mpsc::Receiver<ClientRequest>,
     /// Client request sender (for cloning to gRPC handlers).
     client_tx: mpsc::Sender<ClientRequest>,
-    /// Peer addresses for network communication.
-    peers: HashMap<NodeId, std::net::SocketAddr>,
+    /// Outbound transport manager.
+    transport: TransportManager,
     /// Shutdown signal.
     shutdown_rx: oneshot::Receiver<()>,
 }
@@ -82,12 +82,15 @@ impl VajraNode {
     ) -> Result<Self, VajraError> {
         let (client_tx, client_rx) = mpsc::channel(1024);
 
-        // Build peer map
-        let peers: HashMap<NodeId, std::net::SocketAddr> = config
+        // Build peer list for transport
+        let peers: Vec<(NodeId, String)> = config
             .peers
             .iter()
-            .map(|p| (p.id, p.addr))
+            .map(|p| (p.id, p.addr.to_string()))
             .collect();
+
+        // Create transport manager (spawns workers)
+        let transport = TransportManager::new(peers);
 
         // WAL config
         let wal_config = WalConfig {
@@ -122,7 +125,7 @@ impl VajraNode {
             state_machine,
             client_rx,
             client_tx,
-            peers,
+            transport,
             shutdown_rx,
         })
     }
@@ -141,7 +144,7 @@ impl VajraNode {
         info!(node = %self.id, "Starting reactor event loop");
 
         // Bootstrap: if single node, start campaign
-        if self.peers.is_empty() {
+        if self.transport.is_empty() {
             info!("Single-node cluster, starting leader campaign");
             // The tick will handle election
         }
@@ -278,19 +281,15 @@ impl VajraNode {
         // Note: Persistence is handled by the WAL inside RaftNode
     }
 
-    /// Send a Raft message to another node.
-    async fn send_raft_message(&self, to: NodeId, _msg: RaftMessage) -> Result<(), VajraError> {
-        // TODO: Implement actual network transport
-        // For now, this is a placeholder
-        if let Some(_addr) = self.peers.get(&to) {
-            // Would use tonic client here
-            Ok(())
-        } else {
-            Err(VajraError::NodeUnreachable {
+    /// Send a Raft message to another node via TransportManager.
+    async fn send_raft_message(&self, to: NodeId, msg: RaftMessage) -> Result<(), VajraError> {
+        self.transport
+            .send(to, msg)
+            .await
+            .map_err(|e| VajraError::NodeUnreachable {
                 node_id: to,
                 attempts: 1,
             })
-        }
     }
 }
 
