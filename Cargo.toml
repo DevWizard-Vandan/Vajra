@@ -1,0 +1,97 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/vajra-common",
+    "crates/vajra-engine",
+    "crates/vajra-wal",
+    "crates/vajra-raft",
+    "crates/vajra-transport",
+    "crates/vajra-server",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Vajra Contributors"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/example/vajra"
+rust-version = "1.75.0"
+
+[workspace.dependencies]
+# Internal crates
+vajra-common = { path = "crates/vajra-common" }
+vajra-engine = { path = "crates/vajra-engine" }
+vajra-wal = { path = "crates/vajra-wal" }
+vajra-raft = { path = "crates/vajra-raft" }
+vajra-transport = { path = "crates/vajra-transport" }
+vajra-server = { path = "crates/vajra-server" }
+
+# Async runtime
+tokio = { version = "1.35", features = ["full"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+bincode = "1.3"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Observability - Tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+tracing-opentelemetry = "0.22"
+
+# Observability - OpenTelemetry
+opentelemetry = "0.21"
+opentelemetry_sdk = { version = "0.21", features = ["rt-tokio"] }
+opentelemetry-otlp = { version = "0.14", features = ["tonic"] }
+
+# Observability - Metrics
+metrics = "0.22"
+metrics-exporter-prometheus = "0.13"
+
+# Concurrent data structures
+dashmap = "5.5"
+parking_lot = "0.12"
+crossbeam = "0.8"
+
+# Random number generation (deterministic)
+rand = "0.8"
+rand_chacha = "0.3"
+
+# Utilities
+smallvec = { version = "1.11", features = ["serde"] }
+bytes = "1.5"
+uuid = { version = "1.6", features = ["v4", "serde"] }
+
+# gRPC
+tonic = "0.10"
+prost = "0.12"
+tonic-build = "0.10"
+
+# HTTP server (for metrics endpoint)
+axum = "0.7"
+tower = "0.4"
+hyper = { version = "1.1", features = ["full"] }
+
+# Memory mapping
+memmap2 = "0.9"
+
+# CRC for checksums
+crc32fast = "1.3"
+
+# Testing
+criterion = { version = "0.5", features = ["html_reports"] }
+proptest = "1.4"
+tempfile = "3.9"
+
+[workspace.lints.rust]
+unsafe_code = "warn"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+all = "warn"
+pedantic = "warn"
+nursery = "warn"

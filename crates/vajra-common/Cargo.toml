@@ -1,0 +1,42 @@
+[package]
+name = "vajra-common"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Shared types, errors, and utilities for the Vajra distributed vector database"
+
+[dependencies]
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+
+# Observability - Tracing
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-opentelemetry = { workspace = true }
+
+# Observability - OpenTelemetry
+opentelemetry = { workspace = true }
+opentelemetry_sdk = { workspace = true }
+opentelemetry-otlp = { workspace = true }
+
+# Observability - Metrics
+metrics = { workspace = true }
+metrics-exporter-prometheus = { workspace = true }
+
+# Async runtime (for telemetry initialization)
+tokio = { workspace = true }
+
+# Configuration parsing
+toml = "0.8"
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

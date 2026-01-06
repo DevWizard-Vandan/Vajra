@@ -1,0 +1,37 @@
+[package]
+name = "vajra-raft"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Raft consensus protocol implementation for Vajra"
+
+[dependencies]
+vajra-common = { workspace = true }
+vajra-wal = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+bincode = { workspace = true }
+
+# Concurrency
+parking_lot = { workspace = true }
+crossbeam = { workspace = true }
+
+# Random (for election timeouts)
+rand = { workspace = true }
+rand_chacha = { workspace = true }
+
+# Tracing
+tracing = { workspace = true }
+
+# Async
+tokio = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+proptest = { workspace = true }
+
+[lints]
+workspace = true

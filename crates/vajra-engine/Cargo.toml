@@ -1,0 +1,43 @@
+[package]
+name = "vajra-engine"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "HNSW vector index engine for Vajra"
+
+[dependencies]
+vajra-common = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Concurrency
+dashmap = { workspace = true }
+parking_lot = { workspace = true }
+crossbeam = { workspace = true }
+
+# Random (deterministic)
+rand = { workspace = true }
+rand_chacha = { workspace = true }
+
+# Utilities
+smallvec = { workspace = true }
+tracing = { workspace = true }
+
+# Async
+tokio = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+proptest = { workspace = true }
+tempfile = { workspace = true }
+
+[[bench]]
+name = "hnsw_bench"
+harness = false
+
+[lints]
+workspace = true

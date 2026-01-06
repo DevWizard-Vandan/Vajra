@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package vajra.v1;
+
+// Placeholder for Raft Service proto definitions
+// To be implemented in Phase 4
+
+// service RaftService {
+//   rpc RequestVote(RequestVoteRequest) returns (RequestVoteResponse);
+//   rpc AppendEntries(AppendEntriesRequest) returns (AppendEntriesResponse);
+//   rpc InstallSnapshot(stream InstallSnapshotChunk) returns (InstallSnapshotResponse);
+//   rpc PreVote(PreVoteRequest) returns (PreVoteResponse);
+// }

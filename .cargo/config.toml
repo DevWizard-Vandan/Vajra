@@ -1,0 +1,46 @@
+# Build configuration for Vajra
+# Optimized for static linking and performance
+
+[build]
+# Use multiple codegen units for faster compilation during development
+# Set to 1 for release builds for better optimization
+# codegen-units = 1
+
+[target.x86_64-unknown-linux-musl]
+# Static linking configuration for single binary distribution
+linker = "rust-lld"
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.x86_64-pc-windows-msvc]
+# Windows-specific optimizations
+rustflags = ["-C", "target-cpu=native"]
+
+[target.x86_64-unknown-linux-gnu]
+# Linux GNU target optimizations
+rustflags = ["-C", "target-cpu=native"]
+
+[profile.release]
+# Maximum optimization for release builds
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+# Faster compilation for development
+opt-level = 0
+debug = true
+
+[profile.bench]
+# Benchmarking profile
+opt-level = 3
+debug = false
+lto = "thin"
+
+[alias]
+# Convenience aliases
+t = "test"
+c = "clippy"
+b = "build"
+r = "run"

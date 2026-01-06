@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package vajra.v1;
+
+// Placeholder for Vector Service proto definitions
+// To be implemented in Phase 3
+
+// service VectorService {
+//   rpc Upsert(UpsertRequest) returns (UpsertResponse);
+//   rpc Search(SearchRequest) returns (SearchResponse);
+//   rpc Delete(DeleteRequest) returns (DeleteResponse);
+//   rpc Get(GetRequest) returns (GetResponse);
+// }

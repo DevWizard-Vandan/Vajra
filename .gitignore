@@ -1,0 +1,25 @@
+# Generated files
+/target/
+/Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Runtime data
+/data/wal/
+/data/snapshots/
+
+# Logs
+*.log
+
+# Build artifacts
+*.so
+*.dll
+*.dylib
