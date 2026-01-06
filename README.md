@@ -40,56 +40,158 @@ A distributed, fault-tolerant, in-memory vector database built from first princi
              └─────────────┘  Consensus └─────────────┘  Consensus └─────────────┘
 ```
 
-### Data Flow
+### Component Roles
 
-1. **Client** sends gRPC request (Search, Upsert, Delete)
-2. **Reactor** receives request via channel (never blocks gRPC thread)
-3. **Raft** replicates write operations to followers
-4. **WAL** persists committed entries to disk (crash recovery)
-5. **HNSW** applies changes to in-memory index (fast search)
-
----
-
-## Why These Choices?
-
-### Why HNSW?
-
-> **O(log N)** approximate nearest neighbor search complexity.
-
-HNSW (Hierarchical Navigable Small World) provides:
-- Sub-millisecond search on million-scale datasets
-- Tunable accuracy/speed tradeoff via `ef_search` parameter
-- No need for expensive re-indexing on updates
-
-### Why Raft?
-
-> **CP guarantees** (Consistency + Partition tolerance) over AP.
-
-For a vector database where writes must be durable:
-- Strong consistency prevents "phantom" vectors
-- Leader-based replication simplifies conflict resolution
-- Pre-Vote extension prevents term inflation during partitions
-
-### Why Rust?
-
-> **Zero GC pauses** during vector search hot paths.
-
-Rust provides:
-- No "stop-the-world" garbage collection during search
-- Predictable latency for P99 SLAs
-- Memory safety without runtime overhead
-- Fearless concurrency with the borrow checker
+| Component | Responsibility |
+|-----------|----------------|
+| **gRPC Server** | API gateway, streaming upserts |
+| **Reactor** | Event loop with biased priority |
+| **Raft** | Consensus, leader election, log replication |
+| **WAL** | Crash recovery, durability |
+| **HNSW** | In-memory vector search |
+| **Transport** | Peer-to-peer gRPC communication |
 
 ---
 
-## Features
+## Raft State Machine
 
-- **HNSW Index**: Fast approximate nearest neighbor search
-- **Raft Consensus**: Distributed consensus with Pre-Vote extension
-- **Crash Consistency**: Write-Ahead Log with CRC32 checksums
-- **Biased Event Loop**: Heartbeats never wait for searches
-- **gRPC Transport**: Streaming upsert, reflection support
-- **Observability**: OpenTelemetry tracing, Prometheus metrics
+### States
+
+```
+                    timeout
+    ┌────────────────────────────────┐
+    │                                │
+    ▼                                │
+┌────────┐  receive higher term  ┌───┴─────┐  win election  ┌────────┐
+│Follower│◀─────────────────────│Candidate│───────────────▶│ Leader │
+└────────┘                       └─────────┘                └────────┘
+    ▲                                                            │
+    │                    discover higher term                    │
+    └────────────────────────────────────────────────────────────┘
+```
+
+### Key Invariants
+
+1. **Election Safety**: At most one leader per term
+2. **Leader Append-Only**: Leader never overwrites its log
+3. **Log Matching**: If two logs have same index+term, all prior entries match
+4. **State Machine Safety**: If entry applied, no other entry at same index
+
+### Pre-Vote Extension
+
+Prevents term inflation during network partitions:
+```rust
+// Before starting election, check if we CAN win
+if !pre_vote_granted_by_majority() {
+    return; // Don't increment term, stay follower
+}
+start_real_election();
+```
+
+---
+
+## HNSW Design Decisions
+
+### Why HNSW over alternatives?
+
+| Algorithm | Build Time | Query Time | Memory | Dynamic |
+|-----------|------------|------------|--------|---------|
+| Brute Force | O(1) | O(N) | O(N) | ✅ |
+| KD-Tree | O(N log N) | O(N^0.7) | O(N) | ❌ |
+| LSH | O(N) | O(1)* | O(N) | ⚠️ |
+| **HNSW** | O(N log N) | **O(log N)** | O(N) | ✅ |
+
+### Tradeoffs Made
+
+**1. Memory over Disk**
+- HNSW graph lives entirely in RAM
+- Tradeoff: Fast search, but limited by memory
+- Mitigation: WAL ensures durability
+
+**2. Approximate over Exact**
+- `ef_search` controls accuracy/speed tradeoff
+- Higher `ef` = better recall, slower search
+- Default: 95%+ recall at sub-ms latency
+
+**3. M Parameter Selection**
+```rust
+M = 16      // Connections per node
+// Higher M = better recall, more memory
+// Lower M = less memory, worse recall
+// 16 is sweet spot for 128-dim vectors
+```
+
+---
+
+## Failure Scenarios Tested
+
+### 1. Leader Crash
+```
+Scenario: Leader dies mid-heartbeat
+Expected: New leader elected in <300ms
+Tested:   ✅ Election timeout triggers, new leader elected
+```
+
+### 2. Network Partition
+```
+Scenario: Leader isolated from majority
+Expected: Old leader steps down, new leader on majority side
+Tested:   ✅ Pre-Vote prevents term inflation
+```
+
+### 3. Split Brain Prevention
+```
+Scenario: Network heals after partition
+Expected: Single leader, consistent log
+Tested:   ✅ Higher term leader wins, logs reconcile
+```
+
+### 4. WAL Corruption
+```
+Scenario: Crash during write, partial entry
+Expected: CRC32 detects corruption, truncate and recover
+Tested:   ✅ Corrupt tail recovery in test suite
+```
+
+### 5. Follower Lag
+```
+Scenario: Follower falls behind leader
+Expected: Leader sends missing entries via AppendEntries
+Tested:   ✅ nextIndex[] tracks per-follower progress
+```
+
+---
+
+## Why Biased Reactor?
+
+### The Problem
+
+```rust
+// WRONG: Fair scheduling
+tokio::select! {
+    _ = ticker.tick() => { /* heartbeat */ }
+    msg = client_rx.recv() => { /* client request */ }
+}
+```
+
+If a search takes 50ms and heartbeat interval is 50ms, **heartbeats get delayed**. Followers think leader is dead. Unnecessary elections occur.
+
+### The Solution
+
+```rust
+// RIGHT: Biased scheduling (heartbeats first)
+tokio::select! {
+    biased;  // <-- This changes everything
+    
+    _ = &mut shutdown_rx => { break; }      // 0. Shutdown
+    _ = ticker.tick() => { raft.tick(); }   // 1. Heartbeats FIRST
+    msg = client_rx.recv() => { ... }       // 2. Client requests
+}
+```
+
+**Result**: Heartbeats are never delayed by slow searches. Cluster stability preserved.
+
+> *"The heartbeat must never wait for a search."*
 
 ---
 
@@ -102,7 +204,7 @@ cargo build --release
 # Run single node
 ./target/release/vajra --node-id 1 --listen 127.0.0.1:50051
 
-# Run 3-node cluster (trinity demo)
+# Run 3-node cluster
 .\scripts\trinity_demo.ps1 -Clean
 ```
 
@@ -138,17 +240,6 @@ vajra-transport: 14 tests
 vajra-raft:      12 tests
 vajra-server:     7 tests
 doc-tests:       11 tests
-```
-
----
-
-## Development
-
-```bash
-cargo build --workspace     # Build all
-cargo test --workspace      # Run tests
-cargo clippy --workspace    # Lint
-cargo fmt                   # Format
 ```
 
 ---
