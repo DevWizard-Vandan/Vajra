@@ -1,31 +1,33 @@
 //! # Vajra Server
 //!
-//! The main binary entry point for the Vajra distributed vector database.
+//! The main entry point for the Vajra distributed vector database.
 //!
-//! This binary orchestrates all components:
-//! - WAL recovery and state machine rebuild
-//! - Raft node initialization
-//! - gRPC server startup
-//! - Metrics HTTP endpoint
+//! Implements the Raft Reactor Pattern:
+//! - gRPC handlers send requests to channels
+//! - Reactor loop processes events (tick → network → client)
+//! - State machine applies committed entries
 //!
 //! ## Usage
 //!
 //! ```bash
-//! # Start with default configuration
-//! vajra
-//!
-//! # Start with custom config file
 //! vajra --config /path/to/vajra.toml
-//!
-//! # Start with specific node ID
 //! vajra --node-id 1 --listen 0.0.0.0:50051
 //! ```
 
+mod config;
+mod reactor;
+mod state_machine;
+
 use clap::Parser;
 use std::path::PathBuf;
+use tokio::sync::oneshot;
 use tracing::info;
-use vajra_common::config::{TelemetryConfig, VajraConfig};
+use vajra_common::config::TelemetryConfig;
 use vajra_common::telemetry::{init_telemetry, shutdown_telemetry};
+use vajra_common::NodeId;
+
+use crate::config::ServerConfig;
+use crate::reactor::VajraNode;
 
 /// Vajra - Distributed Vector Database
 #[derive(Parser, Debug)]
@@ -40,13 +42,13 @@ struct Args {
     #[arg(long)]
     node_id: Option<u64>,
 
-    /// Listen address (overrides config file)
+    /// gRPC listen address (overrides config file)
     #[arg(long)]
     listen: Option<String>,
 
-    /// Metrics listen address (overrides config file)
+    /// Data directory
     #[arg(long)]
-    metrics_listen: Option<String>,
+    data_dir: Option<PathBuf>,
 
     /// Log level (trace, debug, info, warn, error)
     #[arg(long, default_value = "info")]
@@ -61,7 +63,7 @@ struct Args {
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
-    // Initialize telemetry first
+    // Initialize telemetry
     let telemetry_config = TelemetryConfig {
         service_name: "vajra".into(),
         otlp_endpoint: None,
@@ -76,41 +78,65 @@ async fn main() -> anyhow::Result<()> {
         "Starting Vajra distributed vector database"
     );
 
-    // Load configuration
-    let config = if let Some(config_path) = &args.config {
+    // Build server configuration
+    let mut config = if let Some(config_path) = &args.config {
         info!(path = %config_path.display(), "Loading configuration from file");
-        VajraConfig::from_file(config_path)?
+        ServerConfig::from_file(config_path)?
     } else {
         info!("Using default configuration");
-        VajraConfig::default()
+        ServerConfig::default()
     };
 
-    // Validate configuration
-    config.validate()?;
+    // Apply CLI overrides
+    if let Some(node_id) = args.node_id {
+        config.node_id = NodeId(node_id);
+    }
+    if let Some(listen) = args.listen {
+        config.grpc_addr = listen.parse()?;
+    }
+    if let Some(data_dir) = args.data_dir {
+        config.data_dir = data_dir;
+    }
 
     info!(
-        node_id = %config.node.id,
-        dimensions = config.engine.dimensions,
-        max_vectors = config.engine.max_vectors,
-        "Configuration validated"
+        node_id = %config.node_id,
+        grpc_addr = %config.grpc_addr,
+        data_dir = %config.data_dir.display(),
+        dimensions = config.dimensions,
+        "Configuration loaded"
     );
 
-    // TODO: Phase 2+ - Implement actual server startup
-    // 1. Open/recover WAL
-    // 2. Rebuild state machine from WAL
-    // 3. Initialize Raft node
-    // 4. Start gRPC server
-    // 5. Start metrics HTTP server
+    // Create shutdown channel
+    let (shutdown_tx, shutdown_rx) = oneshot::channel();
 
-    info!("Vajra server initialized (Phase 0 - foundation only)");
-    info!("Press Ctrl+C to shutdown");
+    // Create reactor node
+    let node = VajraNode::new(config.clone(), shutdown_rx)?;
+    let _client_tx = node.client_sender();
 
-    // Wait for shutdown signal
-    tokio::signal::ctrl_c().await?;
+    info!("Reactor initialized, starting event loop");
 
-    info!("Shutdown signal received");
+    // Spawn shutdown signal handler
+    let shutdown_handle = tokio::spawn(async move {
+        tokio::signal::ctrl_c().await.ok();
+        info!("Shutdown signal received");
+        let _ = shutdown_tx.send(());
+    });
+
+    // TODO: Start gRPC server in separate task
+    // let grpc_handle = tokio::spawn(async move {
+    //     start_grpc_server(config.grpc_addr, client_tx).await
+    // });
+
+    // Run the reactor (this is the main event loop)
+    if let Err(e) = node.run().await {
+        tracing::error!(error = %e, "Reactor error");
+    }
+
+    // Wait for shutdown handler to complete
+    shutdown_handle.await.ok();
+
     shutdown_telemetry();
-
     info!("Vajra server stopped");
+
     Ok(())
 }
