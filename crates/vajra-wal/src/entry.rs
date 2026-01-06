@@ -45,6 +45,9 @@ pub enum Command {
         /// The ID of the vector to delete.
         id: u64,
     },
+    /// Batch of commands for micro-batching (performance optimization).
+    /// This allows multiple operations to share a single fsync.
+    Batch(Vec<Command>),
     /// No-op for leader election confirmation.
     Noop,
 }

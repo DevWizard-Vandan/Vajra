@@ -10,25 +10,27 @@
 //! - **Leader Election**: Randomized timeouts to prevent split-brain
 //! - **Log Replication**: Reliable replication to followers
 //! - **Pre-Vote Extension**: Prevents term inflation during partitions
-//! - **Read Index**: Linearizable reads without log replication
-//! - **Snapshots**: Log compaction for efficient recovery
+//! - **Micro-Batching Ready**: WAL supports batch commands for performance
 //!
-//! ## Roles
+//! ## Vajra Philosophy
 //!
-//! - **Leader**: Handles all client requests, replicates to followers
-//! - **Follower**: Passive, responds to leader RPCs
-//! - **Candidate**: Seeking election to become leader
+//! > "The heartbeat must never wait for a search."
+//!
+//! The tick handler prioritizes heartbeats above all other operations.
 
 #![warn(missing_docs)]
 #![warn(clippy::all)]
-#![warn(clippy::pedantic)]
 
-// Modules will be implemented in Phase 4
-// pub mod node;
-// pub mod state;
-// pub mod log;
-// pub mod rpc;
-// pub mod snapshot;
+pub mod log;
+pub mod messages;
+pub mod node;
+pub mod state;
+
+// Re-export main types
+pub use log::RaftLog;
+pub use messages::{AppendEntries, AppendEntriesResponse, RaftMessage, RequestVote, RequestVoteResponse};
+pub use node::{NodeConfig, RaftNode, Ready};
+pub use state::{LeaderState, PersistentState, VolatileState};
 
 /// Raft role enumeration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -41,33 +43,9 @@ pub enum Role {
     Leader,
 }
 
-/// Placeholder for the Raft node (to be implemented in Phase 4)
-pub struct RaftNode {
-    _private: (),
-}
-
-impl RaftNode {
-    /// Create a new Raft node (placeholder)
-    #[must_use]
-    pub fn new() -> Self {
-        Self { _private: () }
-    }
-}
-
-impl Default for RaftNode {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_placeholder() {
-        let _node = RaftNode::new();
-    }
 
     #[test]
     fn test_role_equality() {

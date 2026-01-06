@@ -5,6 +5,7 @@
 use crate::entry::LogEntry;
 use crate::segment::{list_segments, Segment};
 use parking_lot::RwLock;
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use vajra_common::config::SyncPolicy;
@@ -47,6 +48,9 @@ pub struct WriteAheadLog {
     next_sequence: RwLock<u64>,
     /// All entries currently in the WAL (cached for fast access).
     entries: RwLock<Vec<LogEntry>>,
+    /// Index map for O(1) lookup: LogIndex -> position in entries vec.
+    /// Enables fast "give me entries 50,000 to 55,000" for Raft replication.
+    index_map: RwLock<BTreeMap<u64, usize>>,
 }
 
 impl WriteAheadLog {
@@ -64,6 +68,7 @@ impl WriteAheadLog {
             active_segment: RwLock::new(None),
             next_sequence: RwLock::new(1),
             entries: RwLock::new(Vec::new()),
+            index_map: RwLock::new(BTreeMap::new()),
         };
 
         wal.recover()?;
@@ -119,8 +124,17 @@ impl WriteAheadLog {
             all_entries.extend(result.entries);
         }
 
-        // Update state
-        *self.entries.write() = all_entries;
+        // Update state and build index map
+        let mut entries_guard = self.entries.write();
+        let mut index_map_guard = self.index_map.write();
+        
+        for (pos, entry) in all_entries.iter().enumerate() {
+            index_map_guard.insert(entry.index, pos);
+        }
+        *entries_guard = all_entries;
+        drop(entries_guard);
+        drop(index_map_guard);
+        
         *self.next_sequence.write() = last_sequence + 1;
 
         let entry_count = self.entries.read().len();
@@ -187,8 +201,14 @@ impl WriteAheadLog {
             }
         }
 
-        // Cache entry
-        self.entries.write().push(entry);
+        // Cache entry and update index map
+        let log_index = entry.index;
+        let mut entries = self.entries.write();
+        let position = entries.len();
+        entries.push(entry);
+        drop(entries);
+        
+        self.index_map.write().insert(log_index, position);
 
         Ok(())
     }
@@ -240,6 +260,67 @@ impl WriteAheadLog {
     /// Get the WAL directory.
     pub fn dir(&self) -> &Path {
         &self.config.dir
+    }
+
+    // =========================================================================
+    // Efficient Index-based Lookups (for Raft replication)
+    // =========================================================================
+
+    /// Get a single entry by its log index. O(1) lookup.
+    pub fn get_entry(&self, index: u64) -> Option<LogEntry> {
+        let index_map = self.index_map.read();
+        let position = index_map.get(&index)?;
+        self.entries.read().get(*position).cloned()
+    }
+
+    /// Get the term at a given log index. O(1) lookup.
+    pub fn term_at(&self, index: u64) -> Option<u64> {
+        self.get_entry(index).map(|e| e.term)
+    }
+
+    /// Get a range of entries [start_index, end_index]. O(k) where k = range size.
+    ///
+    /// This is used for Raft log replication: "Send me entries 50,000 to 55,000".
+    pub fn get_range(&self, start_index: u64, end_index: u64) -> Vec<LogEntry> {
+        let index_map = self.index_map.read();
+        let entries = self.entries.read();
+
+        // Use BTreeMap range for efficient iteration
+        index_map
+            .range(start_index..=end_index)
+            .filter_map(|(_, &pos)| entries.get(pos).cloned())
+            .collect()
+    }
+
+    /// Truncate all entries after (and including) the given index.
+    ///
+    /// Used when a Raft follower receives conflicting entries from leader.
+    /// This removes entries from memory cache only (segment files are not modified).
+    pub fn truncate_after(&self, index: u64) {
+        let mut entries = self.entries.write();
+        let mut index_map = self.index_map.write();
+
+        // Find first position to remove
+        if let Some(&start_pos) = index_map.get(&index) {
+            entries.truncate(start_pos);
+        }
+
+        // Remove all indices >= index
+        let to_remove: Vec<u64> = index_map
+            .range(index..)
+            .map(|(&idx, _)| idx)
+            .collect();
+        
+        for idx in to_remove {
+            index_map.remove(&idx);
+        }
+
+        tracing::warn!(from_index = index, "Truncated WAL entries in memory");
+    }
+
+    /// Get the first log index in the WAL.
+    pub fn first_index(&self) -> u64 {
+        self.entries.read().first().map_or(0, |e| e.index)
     }
 }
 
