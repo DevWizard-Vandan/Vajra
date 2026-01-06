@@ -6,22 +6,89 @@ option java_multiple_files = true;
 option java_package = "io.vajra.v1";
 
 // RaftService provides Raft consensus protocol RPCs.
-// Placeholder for Phase 4 implementation.
 service RaftService {
-  // Placeholder RPC - to be implemented in Phase 4
-  rpc Ping(PingRequest) returns (PingResponse);
+  // RequestVote RPC - sent by candidates to gather votes.
+  rpc RequestVote(RequestVoteRequest) returns (RequestVoteResponse);
+  
+  // AppendEntries RPC - sent by leader for log replication and heartbeats.
+  rpc AppendEntries(AppendEntriesRequest) returns (AppendEntriesResponse);
+  
+  // PreVote RPC - checks if election would succeed (prevents term inflation).
+  rpc PreVote(PreVoteRequest) returns (PreVoteResponse);
 }
 
-// Ping request for health checks.
-message PingRequest {
-  // Node ID making the request.
-  uint64 node_id = 1;
+// RequestVote request.
+message RequestVoteRequest {
+  // Candidate's term.
+  uint64 term = 1;
+  // Candidate requesting vote.
+  uint64 candidate_id = 2;
+  // Index of candidate's last log entry.
+  uint64 last_log_index = 3;
+  // Term of candidate's last log entry.
+  uint64 last_log_term = 4;
 }
 
-// Ping response.
-message PingResponse {
-  // Node ID responding.
-  uint64 node_id = 1;
+// RequestVote response.
+message RequestVoteResponse {
   // Current term.
-  uint64 term = 2;
+  uint64 term = 1;
+  // True if vote granted.
+  bool vote_granted = 2;
+}
+
+// AppendEntries request.
+message AppendEntriesRequest {
+  // Leader's term.
+  uint64 term = 1;
+  // Leader ID for client redirection.
+  uint64 leader_id = 2;
+  // Index of log entry immediately preceding new ones.
+  uint64 prev_log_index = 3;
+  // Term of prev_log_index entry.
+  uint64 prev_log_term = 4;
+  // Log entries to store (empty for heartbeat).
+  repeated LogEntryProto entries = 5;
+  // Leader's commit index.
+  uint64 leader_commit = 6;
+}
+
+// AppendEntries response.
+message AppendEntriesResponse {
+  // Current term.
+  uint64 term = 1;
+  // True if successful.
+  bool success = 2;
+  // Match index for optimization.
+  uint64 match_index = 3;
+}
+
+// PreVote request.
+message PreVoteRequest {
+  // Candidate's term.
+  uint64 term = 1;
+  // Candidate ID.
+  uint64 candidate_id = 2;
+  // Last log index.
+  uint64 last_log_index = 3;
+  // Last log term.
+  uint64 last_log_term = 4;
+}
+
+// PreVote response.
+message PreVoteResponse {
+  // Current term.
+  uint64 term = 1;
+  // True if vote would be granted.
+  bool vote_granted = 2;
+}
+
+// Log entry for network transfer.
+message LogEntryProto {
+  // Term when entry was created.
+  uint64 term = 1;
+  // Log index.
+  uint64 index = 2;
+  // Serialized command data.
+  bytes data = 3;
 }

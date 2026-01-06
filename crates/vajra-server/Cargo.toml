@@ -29,6 +29,7 @@ clap = { version = "4.4", features = ["derive"] }
 # HTTP (for metrics endpoint)
 axum = { workspace = true }
 tower = { workspace = true }
+tonic = { workspace = true }
 
 # Tracing
 tracing = { workspace = true }

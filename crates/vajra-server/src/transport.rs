@@ -175,45 +175,88 @@ impl PeerWorker {
     }
 }
 
-/// Simple gRPC client wrapper for Raft messages.
-/// TODO: Wire this to actual tonic client from vajra-transport.
+/// gRPC client wrapper for Raft messages.
 struct RaftClient {
-    _endpoint: String,
+    endpoint: String,
+    client: Option<vajra_transport::pb::raft_service_client::RaftServiceClient<tonic::transport::Channel>>,
 }
 
 impl RaftClient {
     /// Connect to the peer endpoint.
     async fn connect(endpoint: &str) -> Result<Self, String> {
-        // TODO: Replace with actual tonic client
-        // For now, this is a placeholder that simulates connection
-        info!(endpoint = endpoint, "Connecting to peer (placeholder)");
-        Ok(Self {
-            _endpoint: endpoint.to_string(),
-        })
+        let formatted = if endpoint.starts_with("http") {
+            endpoint.to_string()
+        } else {
+            format!("http://{}", endpoint)
+        };
+
+        match vajra_transport::pb::raft_service_client::RaftServiceClient::connect(formatted.clone()).await {
+            Ok(client) => {
+                info!(endpoint = endpoint, "Connected to peer");
+                Ok(Self {
+                    endpoint: formatted,
+                    client: Some(client),
+                })
+            }
+            Err(e) => {
+                warn!(endpoint = endpoint, error = %e, "Failed to connect");
+                Err(format!("Connection failed: {}", e))
+            }
+        }
     }
 
     /// Send a Raft message.
     async fn send(&mut self, msg: &RaftMessage) -> Result<(), String> {
-        // TODO: Convert RaftMessage to gRPC request and send
-        // For now, log the message type
+        let client = self.client.as_mut().ok_or("Not connected")?;
+
         match msg {
-            RaftMessage::RequestVote(_) => {
-                info!("Sending RequestVote (placeholder)");
+            RaftMessage::RequestVote(rv) => {
+                let req = tonic::Request::new(vajra_transport::pb::RequestVoteRequest {
+                    term: rv.term,
+                    candidate_id: rv.candidate_id.0,
+                    last_log_index: rv.last_log_index,
+                    last_log_term: rv.last_log_term,
+                });
+                client.request_vote(req).await.map_err(|e| e.to_string())?;
+                info!("Sent RequestVote");
             }
-            RaftMessage::RequestVoteResponse(_) => {
-                info!("Sending RequestVoteResponse (placeholder)");
+            RaftMessage::AppendEntries(ae) => {
+                let entries: Vec<vajra_transport::pb::LogEntryProto> = ae
+                    .entries
+                    .iter()
+                    .map(|e| vajra_transport::pb::LogEntryProto {
+                        term: e.term,
+                        index: e.index,
+                        data: e.data.clone(),
+                    })
+                    .collect();
+
+                let req = tonic::Request::new(vajra_transport::pb::AppendEntriesRequest {
+                    term: ae.term,
+                    leader_id: ae.leader_id.0,
+                    prev_log_index: ae.prev_log_index,
+                    prev_log_term: ae.prev_log_term,
+                    entries,
+                    leader_commit: ae.leader_commit,
+                });
+                client.append_entries(req).await.map_err(|e| e.to_string())?;
+                info!("Sent AppendEntries");
             }
-            RaftMessage::AppendEntries(_) => {
-                info!("Sending AppendEntries (placeholder)");
+            RaftMessage::PreVote(pv) => {
+                let req = tonic::Request::new(vajra_transport::pb::PreVoteRequest {
+                    term: pv.term,
+                    candidate_id: pv.candidate_id.0,
+                    last_log_index: pv.last_log_index,
+                    last_log_term: pv.last_log_term,
+                });
+                client.pre_vote(req).await.map_err(|e| e.to_string())?;
+                info!("Sent PreVote");
             }
-            RaftMessage::AppendEntriesResponse(_) => {
-                info!("Sending AppendEntriesResponse (placeholder)");
-            }
-            RaftMessage::PreVote(_) => {
-                info!("Sending PreVote (placeholder)");
-            }
-            RaftMessage::PreVoteResponse(_) => {
-                info!("Sending PreVoteResponse (placeholder)");
+            // Response messages are not sent via this path
+            RaftMessage::RequestVoteResponse(_)
+            | RaftMessage::AppendEntriesResponse(_)
+            | RaftMessage::PreVoteResponse(_) => {
+                // Responses are returned inline from RPC handlers
             }
         }
         Ok(())
