@@ -1,52 +1,30 @@
 //! # Vajra Transport
 //!
-//! gRPC transport layer for Vajra client-server and inter-node communication.
+//! gRPC transport layer for Vajra vector database.
 //!
-//! This crate defines the protocol buffer schemas and implements the
-//! gRPC services for:
+//! ## Features
 //!
-//! - **Vector Operations**: Upsert, Search, Delete, Get
-//! - **Raft RPCs**: RequestVote, AppendEntries, InstallSnapshot
-//!
-//! ## Services
-//!
-//! - `VectorService`: Client-facing API for vector operations
-//! - `RaftService`: Internal Raft consensus protocol RPCs
+//! - **Streaming Upsert**: Bulk operations without message size limits
+//! - **Deterministic ID Mapping**: String IDs hashed to u64 with SipHash
+//! - **gRPC Reflection**: Compatible with grpcurl for debugging
+//! - **Error Mapping**: VajraError → proper gRPC status codes
 
 #![warn(missing_docs)]
 #![warn(clippy::all)]
-#![warn(clippy::pedantic)]
 
-// Modules will be implemented in Phase 3
-// pub mod server;
-// pub mod client;
-// pub mod proto;
+pub mod error;
+pub mod id_mapper;
+pub mod service;
 
-/// Placeholder for the gRPC server (to be implemented in Phase 3)
-pub struct VajraServer {
-    _private: (),
+/// Generated protobuf types.
+pub mod pb {
+    tonic::include_proto!("vajra.v1");
+
+    /// File descriptor set for gRPC reflection.
+    pub const FILE_DESCRIPTOR_SET: &[u8] =
+        tonic::include_file_descriptor_set!("vajra_descriptor");
 }
 
-impl VajraServer {
-    /// Create a new server (placeholder)
-    #[must_use]
-    pub fn new() -> Self {
-        Self { _private: () }
-    }
-}
-
-impl Default for VajraServer {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_placeholder() {
-        let _server = VajraServer::new();
-    }
-}
+// Re-export main types
+pub use pb::vector_service_server::{VectorService, VectorServiceServer};
+pub use service::VectorServiceImpl;

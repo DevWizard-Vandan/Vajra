@@ -2,12 +2,26 @@ syntax = "proto3";
 
 package vajra.v1;
 
-// Placeholder for Raft Service proto definitions
-// To be implemented in Phase 4
+option java_multiple_files = true;
+option java_package = "io.vajra.v1";
 
-// service RaftService {
-//   rpc RequestVote(RequestVoteRequest) returns (RequestVoteResponse);
-//   rpc AppendEntries(AppendEntriesRequest) returns (AppendEntriesResponse);
-//   rpc InstallSnapshot(stream InstallSnapshotChunk) returns (InstallSnapshotResponse);
-//   rpc PreVote(PreVoteRequest) returns (PreVoteResponse);
-// }
+// RaftService provides Raft consensus protocol RPCs.
+// Placeholder for Phase 4 implementation.
+service RaftService {
+  // Placeholder RPC - to be implemented in Phase 4
+  rpc Ping(PingRequest) returns (PingResponse);
+}
+
+// Ping request for health checks.
+message PingRequest {
+  // Node ID making the request.
+  uint64 node_id = 1;
+}
+
+// Ping response.
+message PingResponse {
+  // Node ID responding.
+  uint64 node_id = 1;
+  // Current term.
+  uint64 term = 2;
+}

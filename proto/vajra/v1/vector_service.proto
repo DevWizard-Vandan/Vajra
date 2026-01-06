@@ -2,12 +2,123 @@ syntax = "proto3";
 
 package vajra.v1;
 
-// Placeholder for Vector Service proto definitions
-// To be implemented in Phase 3
+option java_multiple_files = true;
+option java_package = "io.vajra.v1";
 
-// service VectorService {
-//   rpc Upsert(UpsertRequest) returns (UpsertResponse);
-//   rpc Search(SearchRequest) returns (SearchResponse);
-//   rpc Delete(DeleteRequest) returns (DeleteResponse);
-//   rpc Get(GetRequest) returns (GetResponse);
-// }
+// VectorService provides operations for vector storage and similarity search.
+service VectorService {
+  // StreamUpsert inserts or updates vectors in a streaming fashion.
+  // Use this for bulk operations to avoid message size limits.
+  rpc StreamUpsert(stream UpsertRequest) returns (UpsertResponse);
+
+  // Search finds the k nearest neighbors to a query vector.
+  rpc Search(SearchRequest) returns (SearchResponse);
+
+  // Delete removes a vector from the index (soft delete).
+  rpc Delete(DeleteRequest) returns (DeleteResponse);
+
+  // Get retrieves a vector by its ID.
+  rpc Get(GetRequest) returns (GetResponse);
+
+  // BatchGet retrieves multiple vectors by their IDs.
+  rpc BatchGet(BatchGetRequest) returns (BatchGetResponse);
+}
+
+// UpsertRequest inserts or updates a single vector.
+message UpsertRequest {
+  // Client-provided string ID (will be hashed to internal u64).
+  string id = 1;
+  // The vector embedding data.
+  repeated float vector = 2;
+  // Optional metadata as serialized bytes (e.g., JSON).
+  bytes metadata = 3;
+}
+
+// UpsertResponse returns the result of a streaming upsert.
+message UpsertResponse {
+  // Number of vectors successfully upserted.
+  uint64 upserted_count = 1;
+  // IDs of any vectors that failed to upsert.
+  repeated string failed_ids = 2;
+}
+
+// SearchRequest queries for nearest neighbors.
+message SearchRequest {
+  // The query vector.
+  repeated float query = 1;
+  // Number of results to return.
+  uint32 k = 2;
+  // Search width (ef parameter). Higher = more accurate but slower.
+  // If 0, uses the index default.
+  uint32 ef = 3;
+  // Optional filter expression (future use).
+  string filter = 4;
+}
+
+// SearchResult represents a single search result.
+message SearchResult {
+  // The vector ID.
+  string id = 1;
+  // Distance/similarity score (lower = more similar for distance metrics).
+  float score = 2;
+  // Optional metadata if requested.
+  bytes metadata = 3;
+}
+
+// SearchResponse contains search results.
+message SearchResponse {
+  // The search results, ordered by score (best first).
+  repeated SearchResult results = 1;
+  // Search latency in microseconds.
+  uint64 latency_us = 2;
+}
+
+// DeleteRequest removes a vector.
+message DeleteRequest {
+  // The vector ID to delete.
+  string id = 1;
+}
+
+// DeleteResponse confirms deletion.
+message DeleteResponse {
+  // True if the vector was found and deleted.
+  bool deleted = 1;
+}
+
+// GetRequest retrieves a vector by ID.
+message GetRequest {
+  // The vector ID.
+  string id = 1;
+  // Whether to include the vector data in the response.
+  bool include_vector = 2;
+  // Whether to include metadata in the response.
+  bool include_metadata = 3;
+}
+
+// GetResponse returns a single vector.
+message GetResponse {
+  // The vector ID.
+  string id = 1;
+  // The vector data (if requested).
+  repeated float vector = 2;
+  // The metadata (if requested).
+  bytes metadata = 3;
+  // True if the vector was found.
+  bool found = 4;
+}
+
+// BatchGetRequest retrieves multiple vectors.
+message BatchGetRequest {
+  // The vector IDs to retrieve.
+  repeated string ids = 1;
+  // Whether to include vector data.
+  bool include_vectors = 2;
+  // Whether to include metadata.
+  bool include_metadata = 3;
+}
+
+// BatchGetResponse returns multiple vectors.
+message BatchGetResponse {
+  // The retrieved vectors.
+  repeated GetResponse vectors = 1;
+}

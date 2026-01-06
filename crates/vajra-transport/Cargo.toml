@@ -9,6 +9,7 @@ description = "gRPC transport layer for Vajra"
 
 [dependencies]
 vajra-common = { workspace = true }
+vajra-engine = { path = "../vajra-engine" }
 
 # Serialization
 serde = { workspace = true }
@@ -17,9 +18,14 @@ prost = { workspace = true }
 
 # gRPC
 tonic = { workspace = true }
+tonic-reflection = "0.10"
+
+# ID Hashing
+siphasher = "1.0"
 
 # Tracing
 tracing = { workspace = true }
+tower-http = { version = "0.4", features = ["trace"] }
 
 # Async
 tokio = { workspace = true }
