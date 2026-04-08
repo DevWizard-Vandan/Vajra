@@ -1,7 +1,7 @@
 # Vajra ⚡
 
 ## 🌐 [Live Demo → devwizard-vandan.github.io/Vajra](https://devwizard-vandan.github.io/Vajra)
-
+## 🔗 [Part of the HFT Stack → devwizard-vandan.github.io/HFT-Stack](https://devwizard-vandan.github.io/HFT-Stack/)
 A distributed, fault-tolerant, in-memory vector database built from first principles in Rust.
 
 [![Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://devwizard-vandan.github.io/Vajra)
