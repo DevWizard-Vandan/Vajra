@@ -15,6 +15,7 @@
 //! ```
 
 mod config;
+mod http;
 mod reactor;
 mod state_machine;
 mod transport;
@@ -46,6 +47,10 @@ struct Args {
     /// gRPC listen address (overrides config file)
     #[arg(long)]
     listen: Option<String>,
+
+    /// HTTP REST listen address (overrides config file)
+    #[arg(long)]
+    http_listen: Option<String>,
 
     /// Data directory
     #[arg(long)]
@@ -95,6 +100,9 @@ async fn main() -> anyhow::Result<()> {
     if let Some(listen) = args.listen {
         config.grpc_addr = listen.parse()?;
     }
+    if let Some(http_listen) = args.http_listen {
+        config.http_addr = http_listen.parse()?;
+    }
     if let Some(data_dir) = args.data_dir {
         config.data_dir = data_dir;
     }
@@ -102,6 +110,7 @@ async fn main() -> anyhow::Result<()> {
     info!(
         node_id = %config.node_id,
         grpc_addr = %config.grpc_addr,
+        http_addr = %config.http_addr,
         data_dir = %config.data_dir.display(),
         dimensions = config.dimensions,
         "Configuration loaded"
@@ -112,7 +121,14 @@ async fn main() -> anyhow::Result<()> {
 
     // Create reactor node
     let node = VajraNode::new(config.clone(), shutdown_rx)?;
-    let _client_tx = node.client_sender();
+    let client_tx = node.client_sender();
+
+    // Spawn HTTP REST API Server
+    let http_addr = config.http_addr;
+    let http_client_tx = client_tx.clone();
+    tokio::spawn(async move {
+        crate::http::start_http_server(http_addr, http_client_tx).await;
+    });
 
     info!("Reactor initialized, starting event loop");
 

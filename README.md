@@ -8,6 +8,12 @@ A distributed, fault-tolerant, in-memory vector database built from first princi
 
 ---
 
+## Why I built this
+
+I built Vajra strictly out of curiosity and a deep desire to learn systems programming from the ground up. I wanted to demystify the magic behind distributed databases and modern AI infrastructure. Instead of just using existing tools like Milvus or Qdrant, I wanted to understand the raw mechanics of consensus algorithms, write-ahead logs, and vector indexes. Rust provided the perfect playground—demanding rigor while empowering performance. What started as late-night tinkering with Raft and HNSW eventually became this project; a testament to breaking down black boxes and building them back up from first principles.
+
+---
+
 ## Architecture
 
 ```

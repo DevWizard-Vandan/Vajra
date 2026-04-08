@@ -13,6 +13,8 @@ pub struct ServerConfig {
     pub node_id: NodeId,
     /// gRPC listen address.
     pub grpc_addr: SocketAddr,
+    /// HTTP listen address for REST API.
+    pub http_addr: SocketAddr,
     /// Metrics HTTP listen address.
     pub metrics_addr: SocketAddr,
     /// Peer node addresses.
@@ -43,6 +45,7 @@ impl Default for ServerConfig {
         Self {
             node_id: NodeId(1),
             grpc_addr: "0.0.0.0:50051".parse().unwrap(),
+            http_addr: "0.0.0.0:8080".parse().unwrap(),
             metrics_addr: "0.0.0.0:9090".parse().unwrap(),
             peers: Vec::new(),
             data_dir: PathBuf::from("data"),
