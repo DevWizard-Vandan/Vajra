@@ -888,13 +888,13 @@
                         <div><span class="t-prompt">$</span> <span class="t-cmd">curl -X POST
                                 http://localhost:8080/upsert \</span></div>
                         <div>&nbsp;&nbsp;<span class="t-cmd">-H "Content-Type: application/json" \</span></div>
-                        <div>&nbsp;&nbsp;<span class="t-cmd">-d '{ "id": 42, "vector": [0.12, 0.84, ...] }'</span></div>
+                        <div>&nbsp;&nbsp;<span class="t-cmd">-d '{ "id": "doc1", "vector": [0.12, 0.84, ...] }'</span></div>
                     </div>
                 </div>
                 <div class="response-box fade-up">
                     <h4>Response</h4>
                     {<br>&nbsp;&nbsp;<span class="t-key">"status"</span>: <span class="t-val">"ok"</span>,<br>
-                    &nbsp;&nbsp;<span class="t-key">"id"</span>: <span class="t-num">42</span>,<br>
+                    &nbsp;&nbsp;<span class="t-key">"id"</span>: <span class="t-val">"doc1"</span>,<br>
                     &nbsp;&nbsp;<span class="t-key">"replicated_to"</span>: <span class="t-num">3</span>,<br>
                     &nbsp;&nbsp;<span class="t-key">"raft_index"</span>: <span class="t-num">4822</span><br>}
                 </div>
@@ -917,9 +917,9 @@
                 <div class="response-box fade-up">
                     <h4>Response — top 5 neighbours</h4>
                     {<br>&nbsp;&nbsp;<span class="t-key">"results"</span>: [<br>
-                    &nbsp;&nbsp;&nbsp;&nbsp;{ <span class="t-key">"id"</span>: <span class="t-num">42</span>, <span
+                    &nbsp;&nbsp;&nbsp;&nbsp;{ <span class="t-key">"id"</span>: <span class="t-val">"doc1"</span>, <span
                         class="t-key">"score"</span>: <span class="t-num">0.9981</span> },<br>
-                    &nbsp;&nbsp;&nbsp;&nbsp;{ <span class="t-key">"id"</span>: <span class="t-num">7</span>, <span
+                    &nbsp;&nbsp;&nbsp;&nbsp;{ <span class="t-key">"id"</span>: <span class="t-val">"doc7"</span>, <span
                         class="t-key">"score"</span>: <span class="t-num">0.9743</span> },<br>
                     &nbsp;&nbsp;&nbsp;&nbsp;...<br>&nbsp;&nbsp;],<br>
                     &nbsp;&nbsp;<span class="t-key">"latency_us"</span>: <span class="t-num">210</span><br>}
