@@ -1,7 +1,10 @@
 # Vajra ⚡
 
+## 🌐 [Live Demo → devwizard-vandan.github.io/Vajra](https://devwizard-vandan.github.io/Vajra)
+
 A distributed, fault-tolerant, in-memory vector database built from first principles in Rust.
 
+[![Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://devwizard-vandan.github.io/Vajra)
 [![Tests](https://img.shields.io/badge/tests-110%20passing-brightgreen)](https://github.com/DevWizard-Vandan/Vajra)
 [![Rust](https://img.shields.io/badge/rust-1.75+-orange)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue)](LICENSE)
@@ -50,7 +53,8 @@ I built Vajra strictly out of curiosity and a deep desire to learn systems progr
 
 | Component | Responsibility |
 |-----------|----------------|
-| **gRPC Server** | API gateway, streaming upserts |
+| **gRPC Server** | Primary API gateway, peer-to-peer sync |
+| **REST API** | Lightweight HTTP gateway (`/upsert`, `/search`, `/health`) |
 | **Reactor** | Event loop with biased priority |
 | **Raft** | Consensus, leader election, log replication |
 | **WAL** | Crash recovery, durability |
@@ -212,6 +216,27 @@ cargo build --release
 
 # Run 3-node cluster
 .\scripts\trinity_demo.ps1 -Clean
+```
+
+---
+
+## REST API Examples
+
+You can interact with Vajra via the native gRPC layer, or through the lightweight Axum REST API (defaults to port `8080`).
+
+```bash
+# Check node health and Raft state
+curl http://localhost:8080/health
+
+# Insert a vector
+curl -X POST http://localhost:8080/upsert \
+  -H "Content-Type: application/json" \
+  -d '{"id": "doc1", "vector": [0.1, 0.2, 0.3, 0.4]}'
+
+# Search for nearest neighbors
+curl -X POST http://localhost:8080/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": [0.1, 0.2, 0.3, 0.4], "k": 10, "ef": 50}'
 ```
 
 ---

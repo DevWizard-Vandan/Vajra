@@ -12,6 +12,7 @@ I built Vajra strictly out of curiosity and a deep desire to learn systems progr
 2. Ensure you have Rust and Cargo installed (`1.75+` is recommended).
 3. Run `cargo test` to verify everything builds properly.
 4. Check out the architecture details in `README.md` to get a feel for how the HNSW index, Raft consensus, and WAL interlock.
+5. Consider testing your code additions using the new lightweight **REST API** or gRPC streams locally.
 
 ## Pull Request Guidelines
 
